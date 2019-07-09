@@ -54,3 +54,52 @@ func (lx LXRHash) Hash(src []byte) []byte {
 	// Return the resulting hash
 	return bytes
 }
+
+func (lx LXRHash) PreHash(src []byte) ([]uint64, uint64, uint64, uint64) {
+	// set up
+	hs := make([]uint64, lx.HashSize)
+	var as = lx.Seed
+	var s1, s2 uint64
+	mk := lx.MapSize - 1
+
+	step := func(v2 uint64) {
+		s1 = s1 ^ as ^ v2 ^ uint64(lx.ByteMap[(as^v2<<9)&mk])<<4
+		s2 = s1<<23 ^ s1>>5 ^ s2<<17 ^ s2>>3 ^ uint64(lx.ByteMap[(s2^v2<<9)&mk])<<11
+		as = s2<<29 ^ s2>>7 ^ as<<37 ^ as>>1 ^ uint64(lx.ByteMap[(s1^v2<<9)&mk])<<13
+		s1, s2 = s2, s1
+	}
+
+	for i, v2 := range src {
+		idx := uint64(i) % lx.HashSize
+		step(uint64(v2))
+		hs[idx] = as ^ hs[idx]
+	}
+
+	// return the result so far
+	return hs, as, s1, s2
+}
+
+func (lx LXRHash) PostHash(src []byte, i int, hs []uint64, as, s1, s2 uint64) []byte {
+	mk := lx.MapSize - 1
+	step := func(v2 uint64) {
+		s1 = s1 ^ as ^ v2 ^ uint64(lx.ByteMap[(as^v2<<9)&mk])<<4
+		s2 = s1<<23 ^ s1>>5 ^ s2<<17 ^ s2>>3 ^ uint64(lx.ByteMap[(s2^v2<<9)&mk])<<11
+		as = s2<<29 ^ s2>>7 ^ as<<37 ^ as>>1 ^ uint64(lx.ByteMap[(s1^v2<<9)&mk])<<13
+		s1, s2 = s2, s1
+	}
+
+	// continue where we left off
+	for ; i < len(src); i++ {
+		idx := uint64(i) % lx.HashSize
+		step(uint64(src[i]))
+		hs[idx] = as ^ hs[idx]
+	}
+
+	bytes := make([]byte, lx.HashSize)
+	for i, h := range hs {
+		step(h)
+		bytes[i] = lx.ByteMap[as&mk] ^ bytes[i]
+	}
+
+	return bytes
+}
