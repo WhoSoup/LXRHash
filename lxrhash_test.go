@@ -4,6 +4,7 @@ package lxr
 
 import (
 	"bytes"
+	"crypto/rand"
 	"encoding/hex"
 	"testing"
 )
@@ -17,20 +18,44 @@ func init() {
 }
 
 func BenchmarkHash(b *testing.B) {
+	run := make([][]byte, 0)
 	nonce := []byte{0, 0}
-	for i := 0; i < b.N; i++ {
+	for i := 0; i < 20000; i++ {
 		nonce = nonce[:0]
 		for j := i; j > 0; j = j >> 8 {
 			nonce = append(nonce, byte(j))
 		}
 		no := append(oprhash, nonce...)
-		h := lx.Hash(no)
-
-		var difficulty uint64
-		for i := uint64(0); i < 8; i++ {
-			difficulty = difficulty<<8 + uint64(h[i])
-		}
+		run = append(run, no)
 	}
+
+	rng := make([][]byte, 0)
+	for _, r := range run { // get same amount and same lengths
+		x := make([]byte, len(r))
+		rand.Read(x)
+		rng = append(rng, x)
+	}
+	b.Run("random input", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			lx.Hash(rng[i%len(rng)])
+		}
+	})
+	b.Run("run input", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			lx.Hash(run[i%len(rng)])
+		}
+	})
+
+	b.Run("random input (shuffle)", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			lx.HashPseudo(rng[i%len(rng)])
+		}
+	})
+	b.Run("run input (shuffle)", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			lx.HashPseudo(run[i%len(rng)])
+		}
+	})
 }
 
 func BenchmarkPseudoHash(b *testing.B) {
