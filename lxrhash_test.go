@@ -33,6 +33,23 @@ func BenchmarkHash(b *testing.B) {
 	}
 }
 
+func BenchmarkPseudoHash(b *testing.B) {
+	nonce := []byte{0, 0}
+	for i := 0; i < b.N; i++ {
+		nonce = nonce[:0]
+		for j := i; j > 0; j = j >> 8 {
+			nonce = append(nonce, byte(j))
+		}
+		no := append(oprhash, nonce...)
+		h := lx.HashPseudo(no)
+
+		var difficulty uint64
+		for i := uint64(0); i < 8; i++ {
+			difficulty = difficulty<<8 + uint64(h[i])
+		}
+	}
+}
+
 func TestKnownHashes(t *testing.T) {
 
 	known := map[string]string{

@@ -47,7 +47,7 @@ func (lx *LXRHash) Init(Seed, MapSizeBits, HashSize, Passes uint64) {
 
 	MapSize := uint64(1) << MapSizeBits
 	lx.ByteMap = make([]byte, int(MapSize))
-
+	lx.Accessed = make([]uint64, 0)
 	lx.HashSize = (HashSize + 7) / 8
 	lx.MapSize = MapSize
 	lx.MapSizeBits = MapSizeBits
