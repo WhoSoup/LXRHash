@@ -120,3 +120,173 @@ func (lx *LXRHash) Hash(src []byte) []byte {
 	// Return the resulting hash
 	return bytes
 }
+
+type hasho struct {
+	src                     []byte
+	hs                      []uint64
+	as, s1, s2, s3, idx, v2 uint64
+}
+
+// HashWork takes the arbitrary input and returns the resulting hash of length HashSize
+func (lx *LXRHash) HashWork(sources [][]byte) [][]byte {
+	var work []*hasho
+	for _, src := range sources {
+		work = append(work, &hasho{
+			src: src,
+			as:  lx.Seed,
+			hs:  make([]uint64, lx.HashSize),
+		})
+	}
+
+	mk := lx.MapSize - 1
+
+	B := func(v uint64) uint64 { return uint64(lx.ByteMap[v&mk]) }
+	b := func(v uint64) byte { return byte(B(v)) }
+
+	faststep := func(work []*hasho, i int, idx uint64) {
+		for _, h := range work {
+			v2 := uint64(h.src[i])
+			b := B(h.as ^ v2)
+			h.as = h.as<<7 ^ h.as>>5 ^ v2<<20 ^ v2<<16 ^ v2 ^ b<<20 ^ b<<12 ^ b<<4
+			h.s1 = h.s1<<9 ^ h.s1>>3 ^ h.hs[idx]
+			h.hs[idx] = h.s1 ^ h.as
+			h.s1, h.s2, h.s3 = h.s3, h.s1, h.s2
+		}
+	}
+
+	// Define a function to move the state by one byte.  This is not intended to be fast
+	// Requires the previous byte read to process the next byte read.  Forces serial evaluation
+	// and removes the possibility of scheduling byte access.
+	//
+	// (Note that use of _ = 0 in lines below are to keep go fmt from messing with comments on the right of the page)
+	step := func(work []*hasho, i int, idx uint64, reduce bool) {
+		for _, h := range work {
+			if reduce {
+				h.v2 = uint64(h.hs[i])
+			} else {
+				h.v2 = uint64(h.src[i])
+			}
+			h.s1 = h.s1<<9 ^ h.s1>>1 ^ h.as ^ B(h.as>>5^h.v2)<<3
+		}
+
+		for _, h := range work {
+			h.s1 = h.s1<<5 ^ h.s1>>3 ^ B(h.s1^h.v2)<<7
+		}
+		for _, h := range work {
+			h.s1 = h.s1<<7 ^ h.s1>>7 ^ B(h.as^h.s1>>7)<<5
+		}
+		for _, h := range work {
+			h.s1 = h.s1<<11 ^ h.s1>>5 ^ B(h.v2^h.as>>11^h.s1)<<27
+			h.hs[idx] = h.s1 ^ h.as ^ h.hs[idx]<<7 ^ h.hs[idx]>>13
+		}
+		for _, h := range work {
+			h.as = h.as<<17 ^ h.as>>5 ^ h.s1 ^ B(h.as^h.s1>>27^h.v2)<<3
+		}
+		for _, h := range work {
+			h.as = h.as<<13 ^ h.as>>3 ^ B(h.as^h.s1)<<7
+		}
+		for _, h := range work {
+			h.as = h.as<<15 ^ h.as>>7 ^ B(h.as>>7^h.s1)<<11
+		}
+		for _, h := range work {
+			h.as = h.as<<9 ^ h.as>>11 ^ B(h.v2^h.as^h.s1)<<3
+		}
+		for _, h := range work {
+			h.s1 = h.s1<<7 ^ h.s1>>27 ^ h.as ^ B(h.as>>3)<<13
+		}
+		for _, h := range work {
+			h.s1 = h.s1<<3 ^ h.s1>>13 ^ B(h.s1^h.v2)<<11
+		}
+		for _, h := range work {
+			h.s1 = h.s1<<8 ^ h.s1>>11 ^ B(h.as^h.s1>>11)<<9
+		}
+		for _, h := range work {
+			h.s1 = h.s1<<6 ^ h.s1>>9 ^ B(h.v2^h.as^h.s1)<<3
+		}
+		for _, h := range work {
+			h.as = h.as<<23 ^ h.as>>3 ^ h.s1 ^ B(h.as^h.v2^h.s1>>3)<<7
+		}
+		for _, h := range work {
+			h.as = h.as<<17 ^ h.as>>7 ^ B(h.as^h.s1>>3)<<5
+		}
+		for _, h := range work {
+			h.as = h.as<<13 ^ h.as>>5 ^ B(h.as>>5^h.s1)<<1
+		}
+		for _, h := range work {
+			h.as = h.as<<11 ^ h.as>>1 ^ B(h.v2^h.as^h.s1)<<7
+		}
+
+		for _, h := range work {
+			h.s1 = h.s1<<5 ^ h.s1>>3 ^ h.as ^ B(h.as>>7^h.s1>>3)<<6
+		}
+		for _, h := range work {
+			h.s1 = h.s1<<8 ^ h.s1>>6 ^ B(h.s1^h.v2)<<11
+		}
+		for _, h := range work {
+			h.s1 = h.s1<<11 ^ h.s1>>11 ^ B(h.as^h.s1>>11)<<5
+		}
+		for _, h := range work {
+			h.s1 = h.s1<<7 ^ h.s1>>5 ^ B(h.v2^h.as>>7^h.as^h.s1)<<17
+		}
+
+		for _, h := range work {
+			h.s2 = h.s2<<3 ^ h.s2>>17 ^ h.s1 ^ B(h.as^h.s2>>5^h.v2)<<13
+		}
+		for _, h := range work {
+			h.s2 = h.s2<<6 ^ h.s2>>13 ^ B(h.s2)<<11
+		}
+		for _, h := range work {
+			h.s2 = h.s2<<11 ^ h.s2>>11 ^ B(h.as^h.s1^h.s2>>11)<<23
+		}
+		for _, h := range work {
+			h.s2 = h.s2<<4 ^ h.s2>>23 ^ B(h.v2^h.as>>8^h.as^h.s2>>10)<<1
+			h.s1 = h.s2<<3 ^ h.s2>>1 ^ h.hs[idx] ^ h.v2
+		}
+		for _, h := range work {
+			h.as = h.as<<9 ^ h.as>>7 ^ h.s1>>1 ^ B(h.s2>>1^h.hs[idx])<<5
+			h.s1, h.s2, h.s3 = h.s3, h.s1, h.s2
+		}
+
+	}
+
+	idx := uint64(0)
+	// Fast spin to prevent caching state
+	for i := 0; i < len(work[0].src); i++ {
+		if idx >= lx.HashSize { // Use an if to avoid modulo math
+			idx = 0
+		}
+		faststep(work, i, idx)
+		idx++
+	}
+
+	idx = 0
+	// Actual work to compute the hash
+	for i := 0; i < len(work[0].src); i++ {
+		if idx >= lx.HashSize { // Use an if to avoid modulo math
+			idx = 0
+		}
+		step(work, i, idx, false)
+		idx++
+	}
+
+	// Reduction pass
+	// Done by Interating over hs[] to produce the bytes[] hash
+	//
+	// At this point, we have HBits of state in hs.  We need to reduce them down to a byte,
+	// And we do so by doing a bit more bitwise math, and mapping the values through our byte map.
+
+	ret := make([][]byte, len(sources))
+	for i := range ret {
+		ret[i] = make([]byte, lx.HashSize)
+	}
+	// Roll over all the hs (one int64 value for every byte in the resulting hash) and reduce them to byte values
+	for i := int64(lx.HashSize - 1); i >= 0; i-- {
+		step(work, int(i), uint64(i), true) // Step the hash functions and then
+		for j, h := range work {
+			ret[j][i] = b(h.as) ^ b(h.hs[i]) // Xor two resulting sequences
+		}
+	}
+
+	// Return the resulting hash
+	return ret
+}
