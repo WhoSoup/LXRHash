@@ -68,10 +68,11 @@ func (lx *LXRHash2) HashValidate(src []byte, hash []byte) (nhash []byte, err err
 		vmk := v & mk
 
 		if hash == nil {
+			var b byte
 			if vmk < lx.ValidationSize {
 				low10percent++
+				b = lx.ByteMap[vmk]
 			}
-			b := lx.ByteMap[vmk]
 			vlist = append(vlist, b)
 			return b
 		} else {
