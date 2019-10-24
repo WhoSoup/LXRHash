@@ -10,15 +10,15 @@ import (
 
 // LXRHash holds one instance of a hash function with a specific seed and map size
 type LXRHash2 struct {
-	ByteMap         []byte // Integer Offsets
-	MapSize         uint64 // Size of the translation table
-	MapSizeBits     uint64 // Size of the ByteMap in Bits
-	Passes          uint64 // Passes to generate the rand table
-	Seed            uint64 // An arbitrary number used to create the tables.
-	ValidationSize  uint64 // How many Bytes of the start of the ByteMap loaded.
-	HashSize        uint64 // Number of bytes in the hash
-	FirstIdx        uint64 // First Index used by LXRHash. (variance measures distribution of ByteMap access)
-	verbose         bool
+	ByteMap        []byte // Integer Offsets
+	MapSize        uint64 // Size of the translation table
+	MapSizeBits    uint64 // Size of the ByteMap in Bits
+	Passes         uint64 // Passes to generate the rand table
+	Seed           uint64 // An arbitrary number used to create the tables.
+	ValidationSize uint64 // How many Bytes of the start of the ByteMap loaded.
+	HashSize       uint64 // Number of bytes in the hash
+	FirstIdx       uint64 // First Index used by LXRHash. (variance measures distribution of ByteMap access)
+	verbose        bool
 }
 
 // Returns just the 32 byte hash.
@@ -65,7 +65,7 @@ func (lx *LXRHash2) HashValidate(src []byte, hash []byte) (nhash []byte, err err
 	}
 
 	B := func(v uint64) byte {
-		vmk := v&mk
+		vmk := v & mk
 
 		if hash == nil {
 			if vmk < lx.ValidationSize {
@@ -138,7 +138,7 @@ func (lx *LXRHash2) HashValidate(src []byte, hash []byte) (nhash []byte, err err
 	// If this hash didn't hit the low 10% of the ByteMap at least 10 times, then we consider it invalid
 	if low10percent < 10 {
 		var nilhash [256]byte
-		return nilhash[:],nil
+		return nilhash[:], nil
 	}
 
 	// If we are validating the hash, then return either a nil or the hash we were given.
